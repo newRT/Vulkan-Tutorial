@@ -51,6 +51,20 @@ private:
 		createInfo.sType			= VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
+		uint32_t glfwExtensionCount = 0;
+		const char** glfwExtensions;
+
+		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+		createInfo.enabledExtensionCount	= glfwExtensionCount;
+		createInfo.ppEnabledExtensionNames  = glfwExtensions;
+		createInfo.enabledLayerCount		= 0;
+
+		if (vkCreateInstance(&createInfo, nullptr, &_instance) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create instance!");
+		}
+
 		uint32_t extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 		std::vector<VkExtensionProperties> extensions(extensionCount);
@@ -61,20 +75,6 @@ private:
 		for (const auto& extension : extensions)
 		{
 			std::cout << "\t\t" << extension.extensionName << std::endl;
-		}
-
-		uint32_t glfwExtensionCount = 0;
-		const char** glfwExtensions;
-
-		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-		createInfo.enabledExtensionCount	= glfwExtensionCount;
-		createInfo.ppEnabledLayerNames		= glfwExtensions;
-		createInfo.enabledLayerCount		= 0;
-
-		if (vkCreateInstance(&createInfo, nullptr, &_instance) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create instance!");
 		}
 	}
 	void _initVulkan()
