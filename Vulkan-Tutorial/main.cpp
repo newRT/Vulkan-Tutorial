@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <functional>
 #include <cstdlib>
+#include <map>
 
 // global const
 const int		WIDTH		= 800;
@@ -62,6 +63,9 @@ private:
 
 	// debug messenger
 	VkDebugUtilsMessengerEXT debugMessenger;
+
+	// physical device-->gpu graphics card
+	VkPhysicalDevice  _physicalDevice = VK_NULL_HANDLE;
 private:
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -170,19 +174,110 @@ private:
 			throw std::runtime_error("failed to create instance!");
 		}		
 	}
+
 	void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 	{
+		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 		createInfo.pfnUserCallback = debugCallback;
-		createInfo.pUserData = nullptr; // optional
 	}
 
 	void _initVulkan()
 	{
 		_createInstance();
 		_setupMessenger();
+		_pickPhysicalDevice();
+	}
+
+	void _pickPhysicalDevice() // graphics card choose(GPU)
+	{
+		uint32_t deviceCount = 0;
+		vkEnumeratePhysicalDevices(_instance, &deviceCount, nullptr); // get the number of GPUs first
+
+		// do we have any GPUs with Vulkan support?
+		if (deviceCount == 0)
+		{
+			throw std::runtime_error("Failed to find GPUs with Vulkan support!");
+		}
+
+		// fill with all the GPUs
+		std::vector<VkPhysicalDevice> devices(deviceCount);
+		vkEnumeratePhysicalDevices(_instance, &deviceCount, devices.data());
+
+		for (const auto& device : devices)
+		{
+			if (_isDeviceSuitable(device))
+			{
+				_physicalDevice = device;
+				break;
+			}
+		}
+
+		// if no suitable GPU
+		if (_physicalDevice == VK_NULL_HANDLE)
+		{
+			throw std::runtime_error("Failed to find a suitable GPU!");
+		}
+
+		// use an ordered map to automatically sort candidates by increasing score
+		std::multimap<int, VkPhysicalDevice> candidates;
+
+		for (const auto& device : devices)
+		{
+			int score = _rateDeviceSuitability(device);
+			candidates.insert(std::make_pair(score, device));
+		}
+
+		// check if the best candidate is suitable alt all
+		if (candidates.rbegin()->first > 0)
+		{
+			_physicalDevice = candidates.rbegin()->second;
+		}
+		else
+		{
+			throw std::runtime_error("Failed to find a suitalbe GPU");
+		}
+	}
+
+	int _rateDeviceSuitability(VkPhysicalDevice device)
+	{
+		VkPhysicalDeviceProperties deviceProperties;
+		VkPhysicalDeviceFeatures deviceFeatures;
+		vkGetPhysicalDeviceProperties(device, &deviceProperties);
+		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+		int score = 0;
+
+		// discrete GPUs have a significant performance advantage
+		if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		{
+			score += 1000;
+		}
+
+		// maximum possible size of textures affects graphics quality
+		score += deviceProperties.limits.maxImageDimension2D;
+
+		// application can't funcion without geometry shaders
+		if (!deviceFeatures.geometryShader)
+		{
+			return 0;
+		}
+
+		return score;
+	}
+
+	bool _isDeviceSuitable(VkPhysicalDevice device)
+	{
+		// base device suitability checks
+		VkPhysicalDeviceProperties deviceProperites;
+		vkGetPhysicalDeviceProperties(device, &deviceProperites);
+
+		VkPhysicalDeviceFeatures deviceFeatures;
+		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+		return deviceProperites.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+			deviceFeatures.geometryShader;
 	}
 
 	void _setupMessenger()
