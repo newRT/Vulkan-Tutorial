@@ -78,6 +78,9 @@ private:
 
 	// logic device
 	VkDevice							_device;
+
+	// queue handle
+	VkQueue								_graphicsQueue;
 private:
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -351,6 +354,9 @@ private:
 		{
 			throw std::runtime_error("Failed to create logical device");
 		}
+
+		// retrieving queue handle
+		vkGetDeviceQueue(_device, indices.graphicsFamily.value(), 0, &_graphicsQueue);
 	}
 	void _setupMessenger()
 	{
