@@ -65,16 +65,19 @@ public:
 	}
 
 private:
-	GLFWwindow* _window;
+	GLFWwindow*							_window;
 
 	// vulkan
-	VkInstance _instance;
+	VkInstance							_instance;
 
 	// debug messenger
-	VkDebugUtilsMessengerEXT debugMessenger;
+	VkDebugUtilsMessengerEXT			debugMessenger;
 
 	// physical device-->gpu graphics card
-	VkPhysicalDevice  _physicalDevice = VK_NULL_HANDLE;
+	VkPhysicalDevice					_physicalDevice = VK_NULL_HANDLE;
+
+	// logic device
+	VkDevice							_device;
 private:
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -198,6 +201,7 @@ private:
 		_createInstance();
 		_setupMessenger();
 		_pickPhysicalDevice();
+		_createLogicDevice();
 	}
 
 	//====================== Physical Device ==========================
@@ -308,6 +312,46 @@ private:
 		}
 		return indices;
 	}
+
+	//====================== Logic Device ==========================
+	void _createLogicDevice()
+	{
+		QueueFamilyIndices indices = _findQueueFamily(_physicalDevice);
+
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value(); // only graphics queue now
+		queueCreateInfo.queueCount = 1;
+
+		float queuePriority = 1.0f;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+
+		VkPhysicalDeviceFeatures deviceFeatures = {};
+
+		VkDeviceCreateInfo deviceCreateInfo = {};
+		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+		deviceCreateInfo.queueCreateInfoCount = 1;
+
+		deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+
+		deviceCreateInfo.enabledExtensionCount= 0;
+
+		if (enableValidationLayer)
+		{
+			deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+		}
+		else
+		{
+			deviceCreateInfo.enabledLayerCount = 0;
+		}
+
+		if (vkCreateDevice(_physicalDevice, &deviceCreateInfo, nullptr, &_device) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create logical device");
+		}
+	}
 	void _setupMessenger()
 	{
 		if (!enableValidationLayer) return;
@@ -331,6 +375,8 @@ private:
 
 	void _cleanup()
 	{
+		vkDestroyDevice(_device, nullptr);
+
 		if (enableValidationLayer)
 		{
 			DestroyDebugUtilsMessengerEXT(_instance, debugMessenger, nullptr);
