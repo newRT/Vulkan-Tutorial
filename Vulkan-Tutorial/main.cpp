@@ -14,10 +14,10 @@ const int		HEIGHT		= 600;
 // for validation layer
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 
-#ifdef NDEBUG
-const bool enableValidationLayer = false;
-#else
+#ifdef _DEBUG
 const bool enableValidationLayer = true;
+#else
+const bool enableValidationLayer = false;
 #endif // #ifdef NDEBUG
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, 
@@ -310,7 +310,7 @@ private:
 	}
 	void _setupMessenger()
 	{
-		if (enableValidationLayer) return;
+		if (!enableValidationLayer) return;
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
 		_populateDebugMessengerCreateInfo(createInfo);
