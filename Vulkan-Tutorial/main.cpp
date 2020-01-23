@@ -106,6 +106,9 @@ private:
 	std::vector<VkImage>				_swapChainImages;
 	VkFormat							_swapChainImageFormat;
 	VkExtent2D							_swapChainExtent;
+
+	// image view
+	std::vector<VkImageView>			_swapChainImageViews;
 private:
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -232,6 +235,37 @@ private:
 		_pickPhysicalDevice();
 		_createLogicDevice();
 		_createSwapchain();
+		_createImageViews();
+	}
+
+	void _createImageViews()
+	{
+		_swapChainImageViews.resize(_swapChainImages.size());
+
+		for (size_t i = 0; i < _swapChainImages.size(); i++)
+		{
+			VkImageViewCreateInfo imgViewCreateInfo = {};
+			imgViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			imgViewCreateInfo.image = _swapChainImages[i];
+			imgViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			imgViewCreateInfo.format = _swapChainImageFormat;
+
+			imgViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imgViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imgViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imgViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+			imgViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			imgViewCreateInfo.subresourceRange.baseMipLevel = 0;
+			imgViewCreateInfo.subresourceRange.levelCount = 1;
+			imgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+			imgViewCreateInfo.subresourceRange.layerCount = 1;
+
+			if (vkCreateImageView(_device, &imgViewCreateInfo, nullptr, &_swapChainImageViews[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create image views");
+			}
+		}
 	}
 
 	void _createSwapchain()
@@ -536,7 +570,7 @@ private:
 
 		VkDeviceCreateInfo deviceCreateInfo = {};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		deviceCreateInfo.queueCreateInfoCount = queueCreateInfos.size();
+		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 
 		deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
@@ -587,6 +621,10 @@ private:
 
 	void _cleanup()
 	{
+		for (auto imageView : _swapChainImageViews)
+		{
+			vkDestroyImageView(_device, imageView, nullptr);
+		}
 		vkDestroySwapchainKHR(_device, _swapChain, nullptr);
 
 		vkDestroyDevice(_device, nullptr);
