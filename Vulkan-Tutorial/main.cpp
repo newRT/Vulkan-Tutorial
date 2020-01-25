@@ -10,6 +10,7 @@
 #include <set>
 #include <cstdint>
 #include <algorithm>
+#include <fstream>
 
 // global const
 const int		WIDTH		= 800;
@@ -49,6 +50,27 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 	if (func != nullptr) {
 		func(instance, debugMessenger, pAllocator);
 	}
+}
+
+static std::vector<char> readFile(const std::string& filename)
+{
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open())
+	{
+		throw std::runtime_error("Failed to open file!");
+	}
+
+	// file size
+	size_t fileSize = (size_t)file.tellg();
+	std::vector<char> buffer(fileSize);
+
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+
+	return buffer;
 }
 
 class HelloTriangleApplication
@@ -236,6 +258,51 @@ private:
 		_createLogicDevice();
 		_createSwapchain();
 		_createImageViews();
+		_createGraphicsPipeline();
+	}
+	
+	void _createGraphicsPipeline()
+	{
+		auto vertShaderCode = readFile("shaders/vert.spv");
+		auto fragShaderCode = readFile("shaders/frag.spv");
+
+		VkShaderModule vertShaderModule = _createShaderModule(vertShaderCode);
+		VkShaderModule fragShaderModule = _createShaderModule(fragShaderCode);
+
+		// shader stage
+		VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo = {};
+		vertShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vertShaderStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		vertShaderStageCreateInfo.module = vertShaderModule;
+		vertShaderStageCreateInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo fragShaderStageCreateInfo = {};
+		fragShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fragShaderStageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fragShaderStageCreateInfo.module = fragShaderModule;
+		fragShaderStageCreateInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageCreateInfo, fragShaderStageCreateInfo };
+
+		vkDestroyShaderModule(_device, fragShaderModule, nullptr);
+		vkDestroyShaderModule(_device, vertShaderModule, nullptr);
+	}
+
+	VkShaderModule _createShaderModule(const std::vector<char>& code)
+	{
+		VkShaderModuleCreateInfo createInfo = {};
+
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = code.size();
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+		
+		VkShaderModule shaderModule;
+		if (vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create shader module");
+		}
+
+		return shaderModule;
 	}
 
 	void _createImageViews()
