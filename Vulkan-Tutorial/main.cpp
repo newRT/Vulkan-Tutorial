@@ -141,6 +141,8 @@ private:
 	// graphics pipeline
 	VkPipeline							_graphicsPipeline;
 
+	// frame buffers
+	std::vector<VkFramebuffer>			_swapChainFrameBuffers;
 private:
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -270,8 +272,33 @@ private:
 		_createImageViews();
 		_createRenderPass();
 		_createGraphicsPipeline();
+		_createFrameBuffers();
 	}
 	
+	void _createFrameBuffers()
+	{
+		_swapChainFrameBuffers.resize(_swapChainImageViews.size());
+
+		for (size_t i = 0; i < _swapChainImageViews.size(); ++i)
+		{
+			VkImageView attachments[] = { _swapChainImageViews[i] };
+
+			VkFramebufferCreateInfo frameBufferInfo = {};
+			frameBufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			frameBufferInfo.renderPass = _renderPass;
+			frameBufferInfo.attachmentCount = 1;
+			frameBufferInfo.pAttachments = attachments;
+			frameBufferInfo.width = _swapChainExtent.width;
+			frameBufferInfo.height = _swapChainExtent.height;
+			frameBufferInfo.layers = 1;
+
+			if (vkCreateFramebuffer(_device, &frameBufferInfo, nullptr, &_swapChainFrameBuffers[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create framebuffer");
+			}
+		}
+	}
+
 	void _createRenderPass()
 	{
 		VkAttachmentDescription colorAttachment = {};
@@ -856,6 +883,11 @@ private:
 
 	void _cleanup()
 	{
+		for (auto framebuffer : _swapChainFrameBuffers)
+		{
+			vkDestroyFramebuffer(_device, framebuffer, nullptr);
+		}
+
 		vkDestroyPipeline(_device, _graphicsPipeline, nullptr);
 
 		vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
